@@ -1,0 +1,121 @@
+<div id="map" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0; border: 2px solid black;"></div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiamFja2xvZ2FuIiwiYSI6ImNtMWJlNW52OTBuNTgyaXBwNXpqNHE3cW0ifQ.KA4uIi7w_DS-es1-jnsJkg';
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/jacklogan/cm1wljgyp00nu01pg270uhwlh',
+    center: [-73.935242, 40.730610],
+    zoom: 2
+});
+
+// Add zoom and rotation controls
+map.addControl(new mapboxgl.NavigationControl());
+
+// Add fullscreen control
+map.addControl(new mapboxgl.FullscreenControl());
+
+// Add geolocate control
+map.addControl(new mapboxgl.GeolocateControl({
+    positionOptions: {
+        enableHighAccuracy: true
+    },
+    trackUserLocation: true
+}));
+
+// Function to create the popup content
+function createPopupContent(data) {
+    const hotelWebsite = data.hotelWebsite.startsWith('http') ? data.hotelWebsite : `https://${data.hotelWebsite}`;
+    
+    return `
+        <div style="font-family: 'Asap', sans-serif; width: 300px; max-height: 400px; overflow-y: auto;">
+            <strong style="font-size: 14px; font-weight: bold;">${data.name}</strong><br>
+            <img src="${data.imageUrl}" alt="${data.name}" style="width: 100%; height: auto; margin-top: 8px;" onerror="this.style.display='none'" /><br>
+            <span style="font-size: 12px;">${data.city}, ${data.country}</span><br>
+            <span style="font-size: 12px; font-family: 'Asap Condensed', sans-serif; font-weight: 300; display: block; margin-top: 8px; white-space: pre-wrap;">${data.description}</span>
+            <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <a href="${hotelWebsite}" target="_blank" style="font-style: italic; font-size: 12px; text-decoration: none;">Hotel Website</a>
+                <a href="${data.letJackHelp}" target="_blank" style="font-style: italic; font-size: 12px; text-decoration: none;">Let Jack Help</a>
+            </div>
+        </div>
+    `;
+}
+
+map.on('load', function() {
+    Papa.parse('https://raw.githubusercontent.com/jslprimepicks/JSL-PRIME-PICKS-GEOJSON/main/JSLPRIMEPICKS.csv', {
+        download: true,
+        header: true,
+        complete: function(results) {
+            results.data.forEach(row => {
+                if (!row.name || !row.longitude || !row.latitude) return;
+
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.style.width = '30px';
+                el.style.height = '30px';
+                el.style.backgroundSize = '100%';
+                el.style.cursor = 'pointer';
+
+                const popup = new mapboxgl.Popup({
+                    offset: 25,
+                    closeButton: false,
+                    maxWidth: 'none'
+                }).setHTML(createPopupContent(row));
+
+                const marker = new mapboxgl.Marker(el)
+                    .setLngLat([parseFloat(row.longitude), parseFloat(row.latitude)])
+                    .setPopup(popup)
+                    .addTo(map);
+
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    marker.togglePopup();
+                });
+            });
+        },
+        error: function(error) {
+            console.error('Error parsing CSV:', error);
+        }
+    });
+});
+
+// Function to enter fullscreen mode on load
+function enterFullscreen() {
+    const mapElement = document.getElementById('map');
+    
+    if (mapElement.requestFullscreen) {
+        mapElement.requestFullscreen();
+    } else if (mapElement.mozRequestFullScreen) { // Firefox
+        mapElement.mozRequestFullScreen();
+    } else if (mapElement.webkitRequestFullscreen) { // Chrome, Safari and Opera
+        mapElement.webkitRequestFullscreen();
+    } else if (mapElement.msRequestFullscreen) { // IE/Edge
+        mapElement.msRequestFullscreen();
+    }
+    
+    // Ensure map height is 100% for fullscreen
+    mapElement.style.height = '100vh';
+    map.resize();
+}
+
+// Automatically enter fullscreen when the page loads
+window.onload = function() {
+    enterFullscreen();
+};
+
+// Fix for fullscreen height issue
+document.addEventListener('fullscreenchange', () => {
+    const mapElement = document.getElementById('map');
+    if (document.fullscreenElement) {
+        mapElement.style.height = '100vh'; // Ensures full height in fullscreen
+    } else {
+        mapElement.style.height = '100vh'; // Reset height
+    }
+    map.resize();
+});
+</script>
